@@ -1,183 +1,136 @@
 import React from 'react';
 import './Carousel.scss';
 
-type Props = {
-  images: string[],
+const defaultSettings = {
+  itemWidth: 130,
+  frameSize: 3,
+  step: 3,
+  animationDuration: 1000,
+  infinite: false,
 };
 
+type Props = {
+  images: string[];
+} & typeof defaultSettings;
+
 type State = {
-  step: number,
-  frameSize: number,
-  itemwidth: number,
-  animationDuration: number,
-  move: number,
+  currentIndex: number;
 };
 
 class Carousel extends React.Component<Props, State> {
+  static defaultProps = defaultSettings;
+
   state: State = {
-    step: 3,
-    frameSize: 3,
-    itemwidth: 130,
-    animationDuration: 1000,
-    move: 0,
+    currentIndex: 0,
+  };
+
+  getMaxIndex = () => {
+    const { images, frameSize } = this.props;
+
+    return Math.max(images.length - frameSize, 0);
+  };
+
+  getCurrentIndex = () => {
+    return Math.min(this.state.currentIndex, this.getMaxIndex());
   };
 
   previousSlide = () => {
-    this.setState((currentState) => {
-      const scroll = currentState.move - (currentState.step * currentState.itemwidth);
+    const { step, infinite } = this.props;
+    const maxIndex = this.getMaxIndex();
 
-      return {
-        move: scroll < 0 ? 0 : scroll,
-      };
+    this.setState(({ currentIndex }) => {
+      const safeIndex = Math.min(currentIndex, maxIndex);
+      const previousIndex = safeIndex - step;
+
+      if (previousIndex >= 0) {
+        return { currentIndex: previousIndex };
+      }
+
+      if (!infinite || safeIndex > 0) {
+        return { currentIndex: 0 };
+      }
+
+      return { currentIndex: maxIndex };
     });
   };
 
-  getMinScroll = () => {
-    const { images } = this.props;
-    const { step, itemwidth } = this.state;
-
-    return (images.length * itemwidth) + (step * itemwidth);
-  };
-
-  getMaxScroll = () => {
-    const { images } = this.props;
-    const { step, itemwidth } = this.state;
-
-    return (images.length * itemwidth) - (step * itemwidth);
-  };
-
   nextSlide = () => {
-    this.setState((currentState) => {
-      const scroll = currentState.move + (currentState.step * currentState.itemwidth);
+    const { step, infinite } = this.props;
+    const maxIndex = this.getMaxIndex();
 
-      return {
-        move: scroll >= this.getMaxScroll() ? this.getMaxScroll() : scroll,
-      };
+    this.setState(({ currentIndex }) => {
+      const safeIndex = Math.min(currentIndex, maxIndex);
+      const nextIndex = safeIndex + step;
+
+      if (nextIndex <= maxIndex) {
+        return { currentIndex: nextIndex };
+      }
+
+      if (!infinite || safeIndex < maxIndex) {
+        return { currentIndex: maxIndex };
+      }
+
+      return { currentIndex: 0 };
     });
   };
 
   render() {
-    const { images } = this.props;
-    const {
-      step,
-      frameSize,
-      itemwidth,
-      animationDuration,
-      move: marginLeft,
-    } = this.state;
+    const { images, itemWidth, frameSize, animationDuration, infinite } =
+      this.props;
+    const currentIndex = this.getCurrentIndex();
+    const maxIndex = this.getMaxIndex();
+    const translateX = currentIndex * itemWidth;
+    const hasHiddenImages = maxIndex > 0;
 
     return (
-      <div className="content">
-        <div className="carousel">
-          <div className="carousel__wrapper">
-            <button
-              type="button"
-              className="btn btn--prev"
-              disabled={this.state.move <= 0}
-              onClick={this.previousSlide}
+      <div className="carousel">
+        <div className="carousel__wrapper">
+          <button
+            type="button"
+            className="btn btn--prev"
+            disabled={!hasHiddenImages || (!infinite && currentIndex <= 0)}
+            onClick={this.previousSlide}
+          >
+            &#10148;
+          </button>
+
+          <div
+            className="carousel__container"
+            style={{ width: `${frameSize * itemWidth}px` }}
+          >
+            <ul
+              className="carousel__list"
+              style={{
+                width: `${images.length * itemWidth}px`,
+                transform: `translateX(${-translateX}px)`,
+                transition: `transform ${animationDuration}ms`,
+              }}
             >
-              &#10148;
-            </button>
-            <div
-              className="carousel__container"
-              style={{ width: `${frameSize * itemwidth}px` }}
-            >
-              <ul
-                className="carousel__list"
-                style={{ transform: `translateX(${-marginLeft}px)`, transition: `${animationDuration}ms`, width: `${images.length * itemwidth}px` }}
-              >
-                {images.map(imgUrl => (
-                  <li key={imgUrl} className="carousel__item">
-                    <img src={imgUrl} alt="smile" className="carousel__img" width={itemwidth} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <button
-              type="button"
-              disabled={this.state.move === this.getMaxScroll()}
-              className="btn btn--next"
-              onClick={this.nextSlide}
-            >
-              &#10148;
-            </button>
+              {images.map(image => (
+                <li key={image} className="carousel__item">
+                  <img
+                    src={image}
+                    alt="smile"
+                    className="carousel__img"
+                    width={itemWidth}
+                  />
+                </li>
+              ))}
+            </ul>
           </div>
+
+          <button
+            type="button"
+            className="btn btn--next"
+            data-cy="next"
+            disabled={
+              !hasHiddenImages || (!infinite && currentIndex >= maxIndex)
+            }
+            onClick={this.nextSlide}
+          >
+            &#10148;
+          </button>
         </div>
-        <form className="form">
-          <label htmlFor="frameSize">
-            Frame Size:
-            &nbsp;
-            <input
-              type="number"
-              name=""
-              id="frameSize"
-              min={1}
-              max={5}
-              step={1}
-              value={frameSize}
-              onChange={(event) => {
-                this.setState({
-                  frameSize: +event?.target.value,
-                });
-              }}
-            />
-          </label>
-
-          <label htmlFor="step">
-            Rolling step:
-            &nbsp;
-            <input
-              type="number"
-              name=""
-              id="step"
-              min={1}
-              max={3}
-              step={1}
-              value={step}
-              onChange={(event) => {
-                this.setState({
-                  step: +event?.target.value,
-                });
-              }}
-            />
-          </label>
-
-          <label htmlFor="itemWidth">
-            Image width:
-            &nbsp;
-            <input
-              type="range"
-              name=""
-              id="itemWidth"
-              min={60}
-              max={230}
-              value={itemwidth}
-              onChange={(event) => {
-                this.setState({
-                  itemwidth: +event?.target.value,
-                });
-              }}
-            />
-          </label>
-
-          <label htmlFor="animationDuration">
-            Animation Duration:
-            &nbsp;
-            <input
-              type="range"
-              name=""
-              id="animationDuration"
-              min={500}
-              max={3000}
-              value={animationDuration}
-              onChange={(event) => {
-                this.setState({
-                  animationDuration: +event?.target.value,
-                });
-              }}
-            />
-          </label>
-        </form>
       </div>
     );
   }
